@@ -16,6 +16,7 @@
  * @type {object}
  * @property {string} name
  * @property {string} guildName
+ * @property {boolean} foundOnSheet
  */
 
 
@@ -53,15 +54,17 @@ function getFamilyNames(guild){
 	const nodes = cheerio(".text").text();
 	const familyPresplit = nodes.replace(/\s+/g, "|").slice(1).slice(0, -1);
 	const familyNames = familyPresplit.split("|").map(player => {
-		return { name: player, guildName: guild.name }
+		return {
+			name: player,
+			guildName: guild.name,
+			foundOnSheet: false
+		}
 	});
 
 	return familyNames;
 }
 
 
-
-// Row Example: 
 
 /**
  * Checks if a player is in a guild
@@ -74,7 +77,7 @@ function getFamilyNames(guild){
  * timestamp(0), familyName(1), discordTag(2), pvp(3), comments(4), NA(5), appliedTo(6), guildStatus(7)
  */
 function checkIfPlayerInGuild(families, row, rowNumber){
-	const sheetFamilyName = row[1];
+	const sheetFamilyName = row[1].replace(/\s+/g, "");
 	const invitedStatus = row[7];
 	if(!invitedStatus) return;
 
@@ -84,6 +87,8 @@ function checkIfPlayerInGuild(families, row, rowNumber){
 	for(const family of families){
 		if(sheetFamilyName.toLowerCase() !== family.name.toLowerCase()) continue;
 		guildName = family.guildName;
+		family.foundOnSheet = true;
+
 		break;
 	}
 	
@@ -92,23 +97,40 @@ function checkIfPlayerInGuild(families, row, rowNumber){
 	if(!guildName){
 		// Set the player as inactive, assuming not "pending invite" or "invited"... or "banned"
 		
-		if(["Pending Invite", "Invited", "No Application"].includes(invitedStatus)) return Logger.log(`Skipping ${sheetFamilyName} because ${invitedStatus}`);
+		if(["Pending Invite", "Invited", "No Application", "Banned"].includes(invitedStatus)) return // Logger.log(`Skipping ${sheetFamilyName} because ${invitedStatus}`);
 		guildCell.setValue("Inactive/ Left");
 	} else {
 		// Update their guild, if it's not already correct
 		
-		if(["Banned"].includes(invitedStatus)) return Logger.log(`Skipping ${sheetFamilyName} because ${invitedStatus}`);
+		if(["Banned", "Bald"].includes(invitedStatus)) return //Logger.log(`Skipping ${sheetFamilyName} because ${invitedStatus}`);
 		guildCell.setValue(guildName);
 	}
 }
 
 
 
+/**
+ * Submits a form response adding a family to the sheet
+ *
+ * @param {PlayerData} family
+ */
+function addFamilyToSheet(family){
+	const _comment = "AUTOMATICALLY ADDED BY APPS SCRIPT";
+	const _name = family.name;
+	
+	const req = `REQ_LINK_HERE`;
+
+	UrlFetchApp.fetch(req);
+}
+
+
+
 async function init(){
 	let familyNames = [];
+
 	for(const guild of guilds){
 		const names = getFamilyNames(guild);
-		familyNames.push(names);
+		familyNames.push(names.slice(1)); // Remove the first one as the GM is duplicated somewhere in the list
 	}
 
 	familyNames = familyNames.flat();
@@ -120,6 +142,11 @@ async function init(){
 	for(let i = 0; i < sheetValues.length; i++){
 		const row = sheetValues[i];
 		checkIfPlayerInGuild(familyNames, row, i);
+	}
+	
+	for(const family of familyNames){
+		if(family.foundOnSheet) continue;
+		addFamilyToSheet(family);
 	}
 }
 

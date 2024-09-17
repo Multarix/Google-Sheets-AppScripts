@@ -1,8 +1,8 @@
 const ss = SpreadsheetApp.getActiveSpreadsheet();
 const sheet = ss.getSheetByName('SHEET_NAME');
-const webhookURL = "INSERT_LINK_HERE";
-const LINK_TO_GOOGLE_DOC = "INSERT_LINK_HERE";
-const GUILD_ICON_URL = "INSERT_LINK_HERE";
+const webhookURL = "LINK_HERE";
+const GOOGLE_DOC_URL = "LINK_HERE";
+const GUILD_ICON_URL = "LINK_HERE";
 
 
 /** Align a range of cells */
@@ -116,6 +116,19 @@ function createDiscordEmbed(event){
 }
 
 
+
+function checkIfAutoAdd(event){
+  const values = event.values;
+	const [_timestamp, _familyName, _discordTag, _pvp, additionalComments, _na, _appliedTo] = values;
+  if(additionalComments === "AUTOMATICALLY ADDED BY APPS SCRIPT"){
+    return true;
+  }
+
+  return false
+}
+
+
+
 /** Sends data to discord */
 function sendWebhookData(event){
 	const embed = createDiscordEmbed(event);
@@ -146,7 +159,8 @@ function onFormSubmit(event){
 
 	setAppliedTo(event);
 	setCellToPending(event);
-	sendWebhookData(event);
+  const autoAdded = checkIfAutoAdd(event);
+	if(!autoAdded) sendWebhookData(event);
 }
 
 
