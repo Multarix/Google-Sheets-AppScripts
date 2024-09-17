@@ -120,9 +120,9 @@ function createDiscordEmbed(event){
 function checkIfAutoAdd(event){
   const values = event.values;
 	const [_timestamp, _familyName, _discordTag, _pvp, additionalComments, _na, _appliedTo] = values;
-  if(additionalComments === "AUTOMATICALLY ADDED BY APPS SCRIPT"){
-    return true;
-  }
+	if(additionalComments === "AUTOMATICALLY ADDED BY APPS SCRIPT"){
+		return true;
+	}
 
   return false
 }
@@ -159,7 +159,7 @@ function onFormSubmit(event){
 
 	setAppliedTo(event);
 	setCellToPending(event);
-  const autoAdded = checkIfAutoAdd(event);
+	const autoAdded = checkIfAutoAdd(event);
 	if(!autoAdded) sendWebhookData(event);
 }
 
