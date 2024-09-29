@@ -1,8 +1,8 @@
 const ss = SpreadsheetApp.getActiveSpreadsheet();
-const sheet = ss.getSheetByName('SHEET_NAME');
-const webhookURL = "LINK_HERE";
-const GOOGLE_DOC_URL = "LINK_HERE";
-const GUILD_ICON_URL = "LINK_HERE";
+const sheet = ss.getSheetByName('NA');
+const WEB_HOOK_URL = "WEB_HOOK_URL";
+const GOOGLE_DOC_URL = "GOOGLE_DOC_URL";
+const GUILD_ICON_URL = "GUILD_ICON_URL";
 
 
 /** Align a range of cells */
@@ -64,8 +64,8 @@ function createDiscordEmbed(event){
 	const guild = (appliedTo.endsWith("Guilds")) ? "Both" : appliedTo.split(" ").pop();
 
 	const guildColors = {
-		"NA_Guild": 1684262,
-		"EU_Guild": 10181046,
+		"Guild1": 1684262,
+		"Guild2": 10181046,
 		"Both": 15844367
 	}
 
@@ -74,8 +74,8 @@ function createDiscordEmbed(event){
 		color: guildColors[guild],
 		author: {
 			name: `Application #${row}`,
-			url: `${LINK_TO_GOOGLE_DOC}&range=${row}:${row}`,
-			icon_url: "GUILD_ICON_URL"
+			url: `${GOOGLE_DOC_URL}&range=${row}:${row}`,
+			icon_url: GUILD_ICON_URL
 		},
 		fields: [
 			{
@@ -119,10 +119,19 @@ function createDiscordEmbed(event){
 
 function checkIfAutoAdd(event){
   const values = event.values;
-	const [_timestamp, _familyName, _discordTag, _pvp, additionalComments, _na, _appliedTo] = values;
-	if(additionalComments === "AUTOMATICALLY ADDED BY APPS SCRIPT"){
-		return true;
-	}
+	const [_timestamp, _familyName, _discordTag, _pvp, additionalComments, _na, appliedTo] = values;
+  if(additionalComments === "AUTOMATICALLY ADDED BY APPS SCRIPT"){
+    const range = event.range;
+    const row = range.getRow();
+    const pendingCell = sheet.getRange("H" + row);
+    pendingCell.setValue(appliedTo.split(" ").pop());
+
+    const timeCell = sheet.getRange("A" + row);
+    timeCell.clearNote();
+    timeCell.setNote(`Joined at roughly:\n${new Date().toUTCString()}`);
+
+    return true;
+  }
 
   return false
 }
@@ -144,7 +153,7 @@ function sendWebhookData(event){
 		contentType: "application/json"
 	};
 
-	const response = UrlFetchApp.fetch(webhookURL, params);
+	UrlFetchApp.fetch(WEB_HOOK_URL, params);
 }
 
 
@@ -159,7 +168,7 @@ function onFormSubmit(event){
 
 	setAppliedTo(event);
 	setCellToPending(event);
-	const autoAdded = checkIfAutoAdd(event);
+  const autoAdded = checkIfAutoAdd(event);
 	if(!autoAdded) sendWebhookData(event);
 }
 

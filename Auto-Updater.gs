@@ -22,8 +22,8 @@
 
 /** @type {GuildData[]} */
 const guilds = [
-	{ name: "NA_Guild", region: "NA" },
-	{ name: "EU_Guild", region: "EU" },
+	{ name: "Guild1", region: "NA" },
+	{ name: "Guild2", region: "NA" },
 ]
 
 
@@ -35,7 +35,9 @@ const guilds = [
  */
 function getPearlAbyssHTML(guild){
 	const url = `https://www.naeu.playblackdesert.com/en-US/Adventure/Guild/GuildProfile?guildName=${guild.name.toLowerCase()}&region=${guild.region.toUpperCase()}`;
-	const response = UrlFetchApp.fetch(url);
+	const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+
+  if(!response) return false;
 	return response.getContentText();
 }
 
@@ -93,17 +95,27 @@ function checkIfPlayerInGuild(families, row, rowNumber){
 	}
 	
 	const guildCell = sheet.getRange(`H${rowNumber + 2}`);
+  const timeCell = sheet.getRange(`A${rowNumber + 2}`);
 	
 	if(!guildName){
 		// Set the player as inactive, assuming not "pending invite" or "invited"... or "banned"
-		
-		if(["Pending Invite", "Invited", "No Application", "Banned"].includes(invitedStatus)) return // Logger.log(`Skipping ${sheetFamilyName} because ${invitedStatus}`);
+		if(["Pending Invite", "Invited", "No Application", "Banned", "Inactive/ Left"].includes(invitedStatus)) return;
 		guildCell.setValue("Inactive/ Left");
+
+    timeCell.clearNote();
+    timeCell.setNote(`Left/ Kicked at roughly:\n${new Date().toUTCString()}`);
+
+    Logger.log(`${sheetFamilyName} is now Inactive/ Left`);
+    
 	} else {
 		// Update their guild, if it's not already correct
-		
-		if(["Banned", "Bald"].includes(invitedStatus)) return //Logger.log(`Skipping ${sheetFamilyName} because ${invitedStatus}`);
+		if(["Banned", "Bald", guildName].includes(invitedStatus)) return;
 		guildCell.setValue(guildName);
+
+    timeCell.clearNote();
+    timeCell.setNote(`Joined at roughly:\n${new Date().toUTCString()}`);
+
+    Logger.log(`${sheetFamilyName} is now part of ${guildName}`);
 	}
 }
 
@@ -115,12 +127,14 @@ function checkIfPlayerInGuild(families, row, rowNumber){
  * @param {PlayerData} family
  */
 function addFamilyToSheet(family){
-	const _comment = "AUTOMATICALLY ADDED BY APPS SCRIPT";
-	const _name = family.name;
-	
-	const req = `REQ_LINK_HERE`;
+  const req = `REQUEST URL HERE`;
 
-	UrlFetchApp.fetch(req);
+
+  // Logger.log(req);
+
+	UrlFetchApp.fetch(req, { muteHttpExceptions: false });
+
+  Logger.log(`Auto added ${family.name} to the sheet`);
 }
 
 
@@ -130,6 +144,7 @@ async function init(){
 
 	for(const guild of guilds){
 		const names = getFamilyNames(guild);
+    if(!names) continue;
 		familyNames.push(names.slice(1)); // Remove the first one as the GM is duplicated somewhere in the list
 	}
 
