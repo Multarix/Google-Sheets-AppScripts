@@ -1,7 +1,7 @@
 const ss = SpreadsheetApp.getActiveSpreadsheet();
 const sheet = ss.getSheetByName('Index');
 
-// The items that can be melted
+
 const itemNames = [
 	"Black Distortion Earring",
 	"Vaha's Dawn", "Ogre Ring",
@@ -32,7 +32,6 @@ const itemNames = [
 ];
 
 
-// Fetch the data from arsha.io
 async function getList(){
 	const response  = UrlFetchApp.fetch(`https://api.arsha.io/v2/na/GetWorldMarketList?mainCategory=20&lang=en`);
 	const data = JSON.parse(response.getContentText());
@@ -41,7 +40,6 @@ async function getList(){
 }
 
 
-// Fetch the prices from arsha.io
 async function getPrices(ids, sids){
 	const response = UrlFetchApp.fetch(`https://api.arsha.io/v2/na/GetBiddingInfoList?id=${ids.join(",")}&sid=${sids.join(",")}&lang=en`);
 	const data = JSON.parse(response.getContentText());
@@ -50,7 +48,6 @@ async function getPrices(ids, sids){
 }
 
 
-// Helper function to compare the values
 function compareValues(oldValue, newValue){
   const res = {
     text: "",
@@ -75,70 +72,65 @@ function compareValues(oldValue, newValue){
 }
 
 
-// Main function
 async function run(){
-  let data;
+  try {
+    data = await getList();
 
-	try { // In case it errors, we use a try catch
-  data = await getList();
+    // Filter out all the items we donn't care about
+    const shortList = [];
+    for(const item of data){
+      if(itemNames.includes(item.name)) shortList.push(item);
+    }
+
+    // ID: Item, SID: Enhance level
+    const ids = [];
+    const sids = [];
+    for(const item of shortList){
+      ids.push(item.id, item.id);
+      sids.push(4, 5);
+    }
+
+    const prices = await getPrices(ids, sids);
+
+    // Put in a format we can use/ loop through easier
+    const organisedData = []
+    for(const item of prices){
+      const d = {
+        name: "",
+        price: 0,
+      }
+      
+      if(item.sid === 4){
+        d.name = `TET (IV) ${item.name}`;
+      } else {
+        d.name = `PEN (V) ${item.name}`;
+      }
+      
+      d.price = item.orders.pop().price;
+      
+      organisedData.push(d);
+    }
+    
+    // console.log(organisedData)
+
+    // Update the cells
+    for(let i = 4; i < 56; i++){
+      const textCellValue = sheet.getRange(`B${i}`).getValue();
+      for(const d of organisedData){
+        if(d.name !== textCellValue) continue;
+
+        const cell = sheet.getRange(`D${i}`);
+        const oldValue = cell.getValue();
+        cell.setValue(d.price);
+
+        const compared = compareValues(parseInt(oldValue), d.price); 
+        const differenceCell = sheet.getRange(`H${i}`);
+        differenceCell.setValue(compared.diff)
+
+        Logger.log(`${d.name} ${compared.text}`);
+      }
+    }
   } catch(e) {
     console.error("Unable to update the sheet");
-  }
-
-  if(!data) return;
-
-  // Filter out all the items we donn't care about
-	const shortList = [];
-	for(const item of data){
-		if(itemNames.includes(item.name)) shortList.push(item);
-	}
-
-  // ID: Item, SID: Enhance level
-	const ids = [];
-	const sids = [];
-	for(const item of shortList){
-		ids.push(item.id, item.id);
-		sids.push(4, 5);
-	}
-
-	const prices = await getPrices(ids, sids);
-
-	// Put in a format we can use/ loop through easier
-	const organisedData = []
-	for(const item of prices){
-		const d = {
-			name: "",
-			price: 0,
-		}
-		
-		if(item.sid === 4){
-			d.name = `TET (IV) ${item.name}`;
-		} else {
-			d.name = `PEN (V) ${item.name}`;
-		}
-		
-		d.price = item.orders.pop().price;
-		
-		organisedData.push(d);
-	}
-	
-  // console.log(organisedData)
-
-  // Update the cells
-  for(let i = 4; i < 56; i++){
-    const textCellValue = sheet.getRange(`B${i}`).getValue();
-    for(const d of organisedData){
-      if(d.name !== textCellValue) continue;
-
-      const cell = sheet.getRange(`D${i}`);
-      const oldValue = cell.getValue();
-      cell.setValue(d.price);
-
-      const compared = compareValues(parseInt(oldValue), d.price); 
-      const differenceCell = sheet.getRange(`H${i}`);
-      differenceCell.setValue(compared.diff)
-
-      Logger.log(`${d.name} ${compared.text}`);
-    }
   }
 }
