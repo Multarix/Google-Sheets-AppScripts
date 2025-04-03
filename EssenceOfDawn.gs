@@ -1,9 +1,11 @@
 const ss = SpreadsheetApp.getActiveSpreadsheet();
 const sheet = ss.getSheetByName('Index');
 
+// It would be smarter to use the ID's instead of names, but it is what it is.
 const itemNames = [
 	"Black Distortion Earring",
-	"Vaha's Dawn", "Ogre Ring",
+	"Vaha's Dawn",
+	"Ogre Ring",
 	"Laytenn's Power Stone",
 	"Eye of the Ruins Ring",
 	"Ring of Crescent Guardian",
@@ -31,115 +33,106 @@ const itemNames = [
 ];
 
 
-async function getList(){
-	const response  = UrlFetchApp.fetch(`https://api.arsha.io/v2/na/GetWorldMarketList?mainCategory=20&lang=en`);
+async function getList() {
+	const response = UrlFetchApp.fetch(`https://api.arsha.io/v2/na/GetWorldMarketList?mainCategory=20&lang=en`);
 	const data = JSON.parse(response.getContentText());
-	
+
 	return data;
 }
 
 
-async function getPrices(ids, sids){
+async function getPrices(ids, sids) {
 	const response = UrlFetchApp.fetch(`https://api.arsha.io/v2/na/GetBiddingInfoList?id=${ids.join(",")}&sid=${sids.join(",")}&lang=en`);
 	const data = JSON.parse(response.getContentText());
-	
+
 	return data;
 }
 
 
-function compareValues(oldValue, newValue){
-  const res = {
-    text: "",
-    diff: ""
-  }
+function compareValues(oldValue, newValue) {
+	const res = {
+		text: "did not change in price",
+		diff: 0
+	}
 
-  if(oldValue > newValue){
-    res.text = `⬇️ decreased ⬇️ in price to ${newValue.toLocaleString()} from ${oldValue.toLocaleString()} (-${(oldValue - newValue).toLocaleString()})`;
-    res.diff = (oldValue - newValue) * -1;
-    return res;
-  }
+	if (oldValue > newValue) {
+		res.text = `⬇️ decreased ⬇️ in price to ${newValue.toLocaleString()} from ${oldValue.toLocaleString()} (-${(oldValue - newValue).toLocaleString()})`;
+		res.diff = (oldValue - newValue) * -1;
+		return res;
+	}
 
-  if(oldValue < newValue){
-    res.text = `⬆️ increased ⬆️ in price to ${newValue.toLocaleString()} from ${oldValue.toLocaleString()} (+${(newValue - oldValue).toLocaleString()})`;
-    res.diff = newValue - oldValue;
-    return res;
-  }
+	if (oldValue < newValue) {
+		res.text = `⬆️ increased ⬆️ in price to ${newValue.toLocaleString()} from ${oldValue.toLocaleString()} (+${(newValue - oldValue).toLocaleString()})`;
+		res.diff = newValue - oldValue;
+		return res;
+	}
 
-  res.text = "did not change in price";
-  res.diff = 0;
-  return res;
+	return res;
 }
 
 
-async function run(){
-  try {
-    data = await getList();
+async function run() {
+	// Wrap in a try/catch so google doesn't email me if something fails (Nothing I can do about it in that situation)
+	try {
+		// Chance to fail, hopefully doesn't
+		data = await getList();
 
-    // Filter out all the items we donn't care about
-    const shortList = [];
-    for(const item of data){
-      if(itemNames.includes(item.name)) shortList.push(item);
-    }
+		// Filter out all the items we donn't care about
+		const shortList = [];
+		for (const item of data) {
+			if (itemNames.includes(item.name)) shortList.push(item);
+		}
 
-    // ID: Item, SID: Enhance level
-    const ids = [];
-    const sids = [];
-    for(const item of shortList){
-      ids.push(item.id, item.id);
-      sids.push(4, 5);
-    }
+		// ID: Item, SID: Enhance level
+		const ids = [];
+		const sids = [];
+		for (const item of shortList) {
+			ids.push(item.id, item.id);
+			sids.push(4, 5);
+		}
 
-    const prices = await getPrices(ids, sids);
+		// Chance to fail, hopefully doesn't
+		const prices = await getPrices(ids, sids);
 
-    // Put in a format we can use/ loop through easier
-    const organisedData = []
-    for(const item of prices){
-      const d = {
-        name: "",
-        price: 0,
-      }
-      
-      if(item.sid === 4){
-        d.name = `TET (IV) ${item.name}`;
-      } else {
-        d.name = `PEN (V) ${item.name}`;
-      }
-      
-      d.price = item.orders.pop().price;
-      
-      organisedData.push(d);
-    }
-    
-    // console.log(organisedData)
+		// Put in a format we can use/ loop through easier
+		const organisedData = []
+		for (const item of prices) {
+			const d = {
+				name: (item.sid === 4) ? `TET (IV) ${item.name}` : `PEN (V) ${item.name}`,
+				price: item.orders.shift().price,
+			}
 
-    const newPrices = [];
-    const newDiffs = [];
+			organisedData.push(d);
+		}
 
-    // Update the cells
-    for(let i = 4; i < 56; i++){
-      const textCellValue = sheet.getRange(`B${i}`).getValue();
-      for(const d of organisedData){
-        if(d.name !== textCellValue) continue;
+		// These arrays are to update the data all at once (Quicker, more efficient)
+		const newPrices = [];
+		const newDiffs = [];
 
-        const cell = sheet.getRange(`D${i}`);
-        const oldValue = cell.getValue();
-        // cell.setValue(d.price);
-        newPrices.push([d.price]);
+		// Table starts B4, so i starts at 4.
+		for (let i = 4; i < 56; i++) {
+			// Name of the item
+			const textCellValue = sheet.getRange(`B${i}`).getValue();
+			for (const d of organisedData) {
+				if (d.name !== textCellValue) continue;
 
-        const compared = compareValues(parseInt(oldValue), d.price); 
-        const differenceCell = sheet.getRange(`H${i}`);
-        // differenceCell.setValue(compared.diff)
-        newDiffs.push([compared.diff]);
+				const cell = sheet.getRange(`D${i}`);   // Price of the item
+				const oldValue = cell.getValue();
+				newPrices.push([d.price]);
 
-        Logger.log(`${d.name} ${compared.text}`);
-      }
-    }
+				// Price difference from the last value
+				const compared = compareValues(parseInt(oldValue), d.price);
+				newDiffs.push([compared.diff]);
 
-    sheet.getRange("D4:D55").setValues(newPrices);
-    sheet.getRange("H4:H55").setValues(newDiffs);
-    
-  } catch(e) {
-    console.error("Unable to update the sheet");
-    console.error(e);
-  }
+				Logger.log(`${d.name} ${compared.text}`);
+			}
+		}
+
+		// Update the cells
+		sheet.getRange("D4:D55").setValues(newPrices);
+		sheet.getRange("H4:H55").setValues(newDiffs);
+
+	} catch (e) {
+		console.error(`Unable to update the sheet:\n${e}`);
+	}
 }
