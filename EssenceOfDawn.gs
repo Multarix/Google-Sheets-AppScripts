@@ -1,7 +1,6 @@
 const ss = SpreadsheetApp.getActiveSpreadsheet();
 const sheet = ss.getSheetByName('Index');
 
-
 const itemNames = [
 	"Black Distortion Earring",
 	"Vaha's Dawn", "Ogre Ring",
@@ -67,7 +66,7 @@ function compareValues(oldValue, newValue){
   }
 
   res.text = "did not change in price";
-  res.diff = "N/A";
+  res.diff = 0;
   return res;
 }
 
@@ -113,6 +112,9 @@ async function run(){
     
     // console.log(organisedData)
 
+    const newPrices = [];
+    const newDiffs = [];
+
     // Update the cells
     for(let i = 4; i < 56; i++){
       const textCellValue = sheet.getRange(`B${i}`).getValue();
@@ -121,16 +123,23 @@ async function run(){
 
         const cell = sheet.getRange(`D${i}`);
         const oldValue = cell.getValue();
-        cell.setValue(d.price);
+        // cell.setValue(d.price);
+        newPrices.push([d.price]);
 
         const compared = compareValues(parseInt(oldValue), d.price); 
         const differenceCell = sheet.getRange(`H${i}`);
-        differenceCell.setValue(compared.diff)
+        // differenceCell.setValue(compared.diff)
+        newDiffs.push([compared.diff]);
 
         Logger.log(`${d.name} ${compared.text}`);
       }
     }
+
+    sheet.getRange("D4:D55").setValues(newPrices);
+    sheet.getRange("H4:H55").setValues(newDiffs);
+    
   } catch(e) {
     console.error("Unable to update the sheet");
+    console.error(e);
   }
 }
