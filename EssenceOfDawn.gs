@@ -41,8 +41,8 @@ async function getList() {
 }
 
 
-async function getPrices(ids, sids) {
-	const response = UrlFetchApp.fetch(`https://api.arsha.io/v2/na/GetBiddingInfoList?id=${ids.join(",")}&sid=${sids.join(",")}&lang=en`);
+async function getPrices(ids) {
+	const response = UrlFetchApp.fetch(`https://api.arsha.io/v2/na/item?id=${ids.join(",")}&lang=en`);
 	const data = JSON.parse(response.getContentText());
 
 	return data;
@@ -88,21 +88,24 @@ async function run() {
 		const sids = [];
 		for (const item of shortList) {
 			ids.push(item.id, item.id);
-			sids.push(4, 5);
 		}
 
 		// Chance to fail, hopefully doesn't
-		const prices = await getPrices(ids, sids);
+		const prices = await getPrices(ids);
 
 		// Put in a format we can use/ loop through easier
 		const organisedData = []
 		for (const item of prices) {
-			const d = {
-				name: (item.sid === 4) ? `TET (IV) ${item.name}` : `PEN (V) ${item.name}`,
-				price: item.orders.shift().price,
-			}
-
-			organisedData.push(d);
+			organisedData.push(
+				{
+					name: `TET (IV) ${item[4].name}`,
+					price: item[4].basePrice
+				},
+				{
+					name: `PEN (V) ${item[5].name}`,
+					price: item[5].basePrice
+				}
+			);
 		}
 
 		// These arrays are to update the data all at once (Quicker, more efficient)
